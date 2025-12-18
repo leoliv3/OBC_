@@ -11,7 +11,6 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         :root { font-family: 'Inter', sans-serif; }
         
-        /* Animação para o navio em trânsito */
         .ship-in-transit {
             animation: move-ship 4s infinite linear;
         }
@@ -22,7 +21,6 @@
             100% { transform: translateX(0) rotate(0deg); }
         }
         
-        /* Header fixo para tabela de estoque */
         #inventory-control th.sticky {
             position: sticky;
             left: 0;
@@ -35,14 +33,12 @@
 </head>
 <body class="bg-gray-900 min-h-screen p-4 md:p-8 text-gray-100">
 
-    <!-- Indicador de Última Atualização -->
     <div class="max-w-7xl mx-auto">
-        <div id="last-update-display" class="text-sm text-gray-500 mb-4 text-left">
+        <div class="text-sm text-gray-500 mb-4 text-left">
             Última Atualização: <span id="last-update-time" class="text-yellow-400">N/A</span>
         </div>
     </div>
 
-    <!-- Cabeçalho Principal -->
     <header class="text-center mb-10">
         <h1 class="text-4xl font-extrabold text-white mb-2">Status Logístico de Remessas (Consolidação/Contêineres)</h1>
         <p class="text-xl text-gray-400">Gestão Integrada: Da Consolidação de Pedidos ao Monitoramento do Fluxo Logístico.</p>
@@ -51,27 +47,19 @@
             Status: <span id="auth-status" class="text-yellow-400">Autenticando...</span> | User ID: <span id="user-id-display">N/A</span>
         </div>
         
-        <!-- Controles de Importação/Exportação -->
         <div id="controls" class="mt-4 flex flex-wrap justify-center gap-4 space-y-2 md:space-y-0">
-            <button onclick="window.handleImportClick('master')" 
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200">
+            <button onclick="window.handleImportClick('master')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200">
                 📥 Importar POs / Remessas
             </button>
-            
-            <button onclick="window.handleImportClick('sop')" 
-                    class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200">
+            <button onclick="window.handleImportClick('sop')" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200">
                 📊 Importar S&OP / Estoque
             </button>
-
-            <button onclick="window.handleExportCSV()" 
-                    class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200">
+            <button onclick="window.handleExportCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200">
                 📤 Exportar CSV (Remessas)
             </button>
             
-            <!-- Dropdown de Modelos -->
             <div class="relative inline-block text-left">
-                <button id="dropdownBtn" type="button" onclick="window.toggleDropdown()" 
-                        class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 flex items-center">
+                <button id="dropdownBtn" type="button" onclick="window.toggleDropdown()" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 flex items-center">
                     📄 Baixar Modelos CSV
                     <svg class="ml-2 w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -79,44 +67,39 @@
                 </button>
                 <div id="dropdownMenu" class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-gray-700 ring-1 ring-black ring-opacity-5 z-20 hidden">
                     <div class="py-1">
-                        <a href="#" onclick="window.handleDownloadTemplateCSV(); return false;" class="block px-4 py-2 text-sm text-gray-200 hover:bg-gray-600">
-                            Modelo Mestre (POs/Remessas)
-                        </a>
-                        <a href="#" onclick="window.handleDownloadSOPTemplate(); return false;" class="block px-4 py-2 text-sm text-gray-200 hover:bg-gray-600">
-                            Modelo S&OP (Estoque/Vendas)
-                        </a>
+                        <a href="#" onclick="window.handleDownloadTemplateCSV(); return false;" class="block px-4 py-2 text-sm text-gray-200 hover:bg-gray-600">Modelo Mestre (Logística)</a>
+                        <a href="#" onclick="window.handleDownloadSOPTemplate(); return false;" class="block px-4 py-2 text-sm text-gray-200 hover:bg-gray-600">Modelo S&OP (Estoque)</a>
                     </div>
                 </div>
             </div>
 
-            <!-- Inputs invisíveis -->
             <input type="file" id="fileInputMaster" accept=".csv" class="hidden" onchange="window.handleImportCSV(event)">
             <input type="file" id="fileInputSOP" accept=".csv" class="hidden" onchange="window.handleImportSOPCSV(event)">
         </div>
     </header>
 
-    <!-- Quadrante 1: POs Abertas -->
+    <!-- 1. Quadro de POs Abertas -->
     <section id="open-po-summary" class="max-w-7xl mx-auto mb-8"></section>
 
-    <!-- Quadrante 2: Remessas (Container) -->
+    <!-- 2. Remessas Consolidadas -->
     <div id="shipment-wrapper" class="max-w-7xl mx-auto mb-12 hidden">
-        <h3 class="text-2xl font-bold text-white mb-6 border-b border-gray-700 pb-2">📦 Remessas Consolidadas (Commercial Invoices)</h3>
+        <h3 class="text-2xl font-bold text-white mb-6 border-b border-gray-700 pb-2">📦 Remessas Consolidadas (Containers)</h3>
         <main id="shipment-container" class="space-y-8"></main>
     </div>
 
-    <!-- Loader -->
+    <!-- Indicador de Sincronização -->
     <div class="text-center py-12" id="loading-message">
         <svg class="animate-spin h-8 w-8 text-blue-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        <p class="mt-4 text-gray-400">Sincronizando dados...</p>
+        <p class="mt-4 text-gray-400">Sincronizando banco de dados...</p>
     </div>
 
-    <!-- Quadrante 3: Projeção de Estoque -->
+    <!-- 3. Projeção de Estoque -->
     <section id="inventory-control" class="max-w-7xl mx-auto mb-8"></section>
 
-    <!-- Quadrante 4: Sugestões de Reposição -->
+    <!-- 4. Sugestões de Reposição -->
     <section id="purchase-suggestions" class="max-w-7xl mx-auto mb-8"></section>
     
     <script type="module">
@@ -124,7 +107,6 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, query, where, writeBatch, serverTimestamp, updateDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- CONFIGURAÇÕES E ESTADO ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : undefined;
@@ -154,7 +136,7 @@
             { id: 11, name: "Disponível para Venda", icon: "✅" }
         ];
 
-        // --- UTILITÁRIOS ---
+        // --- FUNÇÕES DE DATA ---
         function parseDateString(dateStr) {
             if (!dateStr || typeof dateStr !== 'string') return null;
             dateStr = dateStr.trim();
@@ -184,10 +166,11 @@
             try {
                 const arrivalDate = getDateObject(arrivalDateStr);
                 if (!arrivalDate) return '-';
-                arrivalDate.setDate(arrivalDate.getDate() + 16);
-                const y = arrivalDate.getFullYear();
-                const m = String(arrivalDate.getMonth() + 1).padStart(2, '0');
-                const d = String(arrivalDate.getDate()).padStart(2, '0');
+                const availDate = new Date(arrivalDate);
+                availDate.setDate(availDate.getDate() + 16);
+                const y = availDate.getFullYear();
+                const m = String(availDate.getMonth() + 1).padStart(2, '0');
+                const d = String(availDate.getDate()).padStart(2, '0');
                 return `${y}-${m}-${d}`;
             } catch(e) { return '-'; }
         }
@@ -202,12 +185,21 @@
             return { status: 'Adiantado', color: 'bg-yellow-900/40 text-yellow-400' };
         }
 
-        // --- CÁLCULOS DE SIMULAÇÃO ---
+        function getPOStatus(plannedDateStr, estimatedDeliveryDateStr) {
+            if (!plannedDateStr || !estimatedDeliveryDateStr) return { status: 'N/A', color: 'text-gray-400 bg-gray-700' };
+            const planned = getDateObject(plannedDateStr);
+            const estimated = getDateObject(estimatedDeliveryDateStr);
+            if (!planned || !estimated) return { status: 'N/A', color: 'text-gray-400 bg-gray-700' };
+            const diffDays = Math.round((estimated.getTime() - planned.getTime()) / (1000 * 60 * 60 * 24)); 
+            if (diffDays > 5) return { status: 'Delayed', color: 'text-red-400 bg-red-900/40' };
+            if (diffDays < -5) return { status: 'Early', color: 'text-yellow-400 bg-yellow-900/40' };
+            return { status: 'On Time', color: 'text-green-400 bg-green-900/40' };
+        }
 
+        // --- CÁLCULOS E SIMULAÇÃO ---
         function calculateStockSimulation() {
             const simulation = {};
             const arrivalData = {};
-            
             MOCK_SHIPMENTS_DATA.forEach(ship => {
                 ship.purchaseOrders.forEach(po => {
                     const baseDate = ship.dates?.portArrivalDate && ship.dates.portArrivalDate !== '-' ? ship.dates.portArrivalDate : ship.dates?.estimatedArrival;
@@ -215,9 +207,7 @@
                         const availDateStr = calculateAvailability(baseDate);
                         const availDate = getDateObject(availDateStr);
                         if (availDate) {
-                            const year = availDate.getFullYear();
-                            const month = String(availDate.getMonth() + 1).padStart(2, '0');
-                            const key = `${year}-${month}`;
+                            const key = `${availDate.getFullYear()}-${String(availDate.getMonth() + 1).padStart(2, '0')}`;
                             arrivalData[key] = arrivalData[key] || {};
                             arrivalData[key][po.item] = (arrivalData[key][po.item] || 0) + po.quantity;
                         }
@@ -228,9 +218,7 @@
             const allItems = new Set([...Object.keys(MOCK_INVENTORY), ...MOCK_SHIPMENTS_DATA.flatMap(s => s.purchaseOrders.map(p => p.item)), ...Object.keys(MOCK_SALES_FORECAST).flatMap(m => Object.keys(MOCK_SALES_FORECAST[m]))]);
             const months = Object.keys(MOCK_SALES_FORECAST).sort();
             let prevBalance = { ...MOCK_INVENTORY };
-            
             for (const item of allItems) simulation[item] = { currentStock: MOCK_INVENTORY[item] || 0, periods: {} };
-            
             months.forEach(m => {
                 for (const item of allItems) {
                     const start = prevBalance[item] || 0;
@@ -256,13 +244,9 @@
                         if (deadline) {
                             deadline.setDate(deadline.getDate() - params.LT_days);
                             suggestions.push({ 
-                                item, 
-                                ss: params.SS_units, 
-                                lt: params.LT_days, 
+                                item, ss: params.SS_units, lt: params.LT_days, 
                                 quantity: Math.max(1, params.SS_units - data.periods[m].endBalance + (MOCK_SALES_FORECAST[m]?.[item] || 0)), 
-                                month: m, 
-                                deadline, 
-                                urgent: deadline < SIMULATED_TODAY 
+                                month: m, deadline, urgent: deadline < SIMULATED_TODAY 
                             });
                         }
                         break;
@@ -272,68 +256,85 @@
             return suggestions;
         }
 
-        // --- COMPONENTES DE UI ---
+        // --- COMPONENTES DE RENDERIZAÇÃO ---
+        function generatePOListInShipment(purchaseOrders, containerEstimatedDelivery) {
+            return `
+                <div class="mt-6 border border-gray-700 rounded-lg overflow-hidden">
+                    <div class="bg-gray-700/50 p-2"><h4 class="text-xs font-bold uppercase text-gray-300">Itens Consolidados</h4></div>
+                    <table class="w-full text-xs text-left">
+                        <thead class="bg-gray-800 text-gray-400 uppercase text-[9px]">
+                            <tr><th class="px-4 py-2">ID PO</th><th class="px-4 py-2">Item</th><th class="px-4 py-2 text-right">Qtd</th><th class="px-4 py-2 text-center">Status</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-700">
+                            ${purchaseOrders.map(po => {
+                                const st = getPOStatus(po.plannedAvailability, containerEstimatedDelivery);
+                                return `<tr class="hover:bg-gray-700/30">
+                                    <td class="px-4 py-2 text-blue-400 font-bold">${po.id}</td>
+                                    <td class="px-4 py-2 text-gray-300">${po.item}</td>
+                                    <td class="px-4 py-2 text-right text-gray-100 font-mono">${po.quantity.toLocaleString('pt-BR')}</td>
+                                    <td class="px-4 py-2 text-center"><span class="px-2 py-0.5 rounded-full ${st.color}">${st.status}</span></td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+        }
 
         function generateTimeline(currentStageId, shipmentId) {
-            return `
-                <div class="flex justify-between items-start text-xs font-semibold mt-4 mb-2 overflow-x-auto p-2">
-                    ${STAGES.map(stage => {
-                        const isCompleted = stage.id < currentStageId;
-                        const isActive = stage.id === currentStageId;
-                        const statusClass = isCompleted ? 'bg-green-500' : isActive ? 'bg-blue-500 animate-pulse' : 'bg-gray-600';
-                        const textClass = isActive ? 'text-blue-400 font-bold' : 'text-gray-400';
-                        return `<div class="flex flex-col items-center flex-shrink-0 min-w-[75px] max-w-[90px]">
-                                <div class="w-5 h-5 ${statusClass} rounded-full flex items-center justify-center text-white shadow-md z-10 cursor-pointer" 
-                                     onclick="window.updateShipmentStage('${shipmentId}', ${stage.id})">${isCompleted ? '✓' : stage.id}</div>
-                                <div class="h-1 w-full -mt-2.5 ${stage.id <= currentStageId - 1 ? 'bg-blue-600' : 'bg-gray-700'}"></div>
-                                <span class="mt-1 text-center ${textClass} text-[9px] sm:text-[10px] leading-tight">${stage.name}</span>
-                            </div>`;
-                    }).join('')}
-                </div>`;
+            return `<div class="flex justify-between items-start text-xs font-semibold mt-4 mb-2 overflow-x-auto p-2">
+                ${STAGES.map(stage => {
+                    const isCompleted = stage.id < currentStageId;
+                    const isActive = stage.id === currentStageId;
+                    const statusClass = isCompleted ? 'bg-green-500' : isActive ? 'bg-blue-500 animate-pulse' : 'bg-gray-600';
+                    const textClass = isActive ? 'text-blue-400 font-bold' : 'text-gray-400';
+                    return `<div class="flex flex-col items-center flex-shrink-0 min-w-[75px] max-w-[90px]">
+                            <div class="w-5 h-5 ${statusClass} rounded-full flex items-center justify-center text-white shadow-md z-10 cursor-pointer" onclick="window.updateShipmentStage('${shipmentId}', ${stage.id})">${isCompleted ? '✓' : stage.id}</div>
+                            <div class="h-1 w-full -mt-2.5 ${stage.id <= currentStageId - 1 ? 'bg-blue-600' : 'bg-gray-700'}"></div>
+                            <span class="mt-1 text-center ${textClass} text-[9px] sm:text-[10px] leading-tight">${stage.name}</span>
+                        </div>`;
+                }).join('')}
+            </div>`;
         }
 
         function createShipmentCard(shipment) {
             const currentStage = STAGES.find(s => s.id === shipment.currentStage);
-            const displayRealDate = (realDate, estimatedDate) => {
-                if (realDate && realDate !== 'null' && realDate !== '-') return formatDate(realDate);
-                if (estimatedDate && estimatedDate !== 'null' && estimatedDate !== '-') return `<span class="text-yellow-400 font-bold">${formatDate(estimatedDate)} E</span>`;
+            const displayDate = (real, est) => {
+                if (real && real !== 'null' && real !== '-') return formatDate(real);
+                if (est && est !== 'null' && est !== '-') return `<span class="text-yellow-400 font-bold">${formatDate(est)} E</span>`;
                 return '-';
             };
-            const availDateStr = calculateAvailability(shipment.dates.portArrivalDate && shipment.dates.portArrivalDate !== '-' ? shipment.dates.portArrivalDate : shipment.dates.estimatedArrival);
+            const availDate = calculateAvailability(shipment.dates.portArrivalDate && shipment.dates.portArrivalDate !== '-' ? shipment.dates.portArrivalDate : shipment.dates.estimatedArrival);
 
-            return `
-                <div class="bg-gray-800 rounded-xl shadow-xl border border-gray-700 p-6">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b border-gray-700 pb-4">
-                        <h2 class="text-2xl font-bold text-gray-100">${shipment.name} (${shipment.commercialInvoiceId})</h2>
-                        <div class="flex items-center space-x-2">
-                            <span class="px-3 py-1 bg-purple-900/40 text-purple-300 font-semibold text-sm rounded-full">${shipment.supplier}</span>
-                            <div class="text-3xl ${shipment.currentStage === 6 ? 'ship-in-transit' : ''}">${currentStage.icon}</div>
-                            <span class="px-4 py-1.5 bg-blue-700 font-semibold text-sm rounded-full">${currentStage.name}</span>
-                        </div>
+            return `<div class="bg-gray-800 rounded-xl shadow-xl border border-gray-700 p-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b border-gray-700 pb-4">
+                    <h2 class="text-2xl font-bold text-gray-100">${shipment.name} (${shipment.commercialInvoiceId})</h2>
+                    <div class="flex items-center space-x-2">
+                        <span class="px-3 py-1 bg-purple-900/40 text-purple-300 font-semibold text-sm rounded-full">${shipment.supplier}</span>
+                        <div class="text-3xl ${shipment.currentStage === 6 ? 'ship-in-transit' : ''}">${currentStage.icon}</div>
+                        <span class="px-4 py-1.5 bg-blue-700 font-semibold text-sm rounded-full">${currentStage.name}</span>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        <div class="text-sm">
-                            <p class="mb-1 text-blue-400 font-bold uppercase text-xs tracking-wider">Referências</p>
-                            <p><strong>CI:</strong> ${shipment.commercialInvoiceId}</p>
-                            <p><strong>Container:</strong> <span class="text-yellow-400 font-mono">${shipment.containerNumber || 'TBA'}</span></p>
-                        </div>
-                        <div class="text-sm">
-                            <p class="mb-1 text-blue-400 font-bold uppercase text-xs tracking-wider">Datas Logísticas (Real)</p>
-                            <p><strong>Embarque:</strong> ${displayRealDate(shipment.dates.shipDepartureDate, shipment.dates.estimatedDeparture)}</p>
-                            <p><strong>Chegada:</strong> ${displayRealDate(shipment.dates.portArrivalDate, shipment.dates.estimatedArrival)}</p>
-                            <p class="text-green-400 mt-2 font-bold underline"><strong>Disponibilidade (D+16):</strong> ${formatDate(availDateStr)}</p>
-                        </div>
-                        <div class="text-sm">
-                            <p class="mb-1 text-yellow-400 font-bold uppercase text-xs tracking-wider">Estimativas (ETD / ETA)</p>
-                            <p><strong>ETD:</strong> <span class="font-bold text-yellow-400">${formatDate(shipment.dates.estimatedDeparture)}</span></p>
-                            <p><strong>ETA:</strong> <span class="font-bold text-yellow-400">${formatDate(shipment.dates.estimatedArrival)}</span></p>
-                        </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div class="text-sm">
+                        <p class="mb-1 text-blue-400 font-bold uppercase text-xs tracking-wider">Referências</p>
+                        <p><strong>Container:</strong> <span class="text-yellow-400 font-mono">${shipment.containerNumber || 'TBA'}</span></p>
                     </div>
-                    ${generateTimeline(shipment.currentStage, shipment.shipmentId)}
-                </div>`;
+                    <div class="text-sm">
+                        <p class="mb-1 text-blue-400 font-bold uppercase text-xs tracking-wider">Logística (Real)</p>
+                        <p><strong>Embarque:</strong> ${displayDate(shipment.dates.shipDepartureDate, shipment.dates.estimatedDeparture)}</p>
+                        <p><strong>Chegada:</strong> ${displayDate(shipment.dates.portArrivalDate, shipment.dates.estimatedArrival)}</p>
+                        <p class="text-green-400 mt-2 font-bold underline italic">Disponibilidade (D+16): ${formatDate(availDate)}</p>
+                    </div>
+                    <div class="text-sm text-yellow-400">
+                        <p class="mb-1 font-bold uppercase text-xs tracking-wider">Estimativas</p>
+                        <p><strong>ETD:</strong> <span class="font-bold">${formatDate(shipment.dates.estimatedDeparture)}</span></p>
+                        <p><strong>ETA:</strong> <span class="font-bold">${formatDate(shipment.dates.estimatedArrival)}</span></p>
+                    </div>
+                </div>
+                ${generateTimeline(shipment.currentStage, shipment.shipmentId)}
+                ${generatePOListInShipment(shipment.purchaseOrders, shipment.dates.estimatedDelivery)}
+            </div>`;
         }
-
-        // --- RENDERIZAÇÃO PRINCIPAL ---
 
         function renderOrders() {
             const loader = document.getElementById('loading-message');
@@ -345,33 +346,32 @@
                 const total = MOCK_OPEN_POS.length;
                 const sent = MOCK_OPEN_POS.filter(p => p.currentStage === 1).length;
                 const prod = MOCK_OPEN_POS.filter(p => p.currentStage === 2).length;
-
                 poSec.innerHTML = `
                 <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-2xl">
                     <h3 class="text-2xl font-bold text-white mb-6 border-b border-gray-700 pb-2">POs Abertas / PIs Emitidas</h3>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center mb-8">
                         <div class="p-4 rounded-lg bg-blue-900/40 border border-blue-700/50">
                             <p class="text-4xl font-extrabold text-blue-400">${total}</p>
-                            <p class="text-sm text-gray-300 mt-1 uppercase tracking-widest text-xs font-bold">Total de Pedidos</p>
+                            <p class="text-sm text-gray-300 mt-1 uppercase text-xs font-bold">Total de Pedidos</p>
                         </div>
                         <div class="p-4 rounded-lg bg-green-900/40 border border-green-700/50">
                             <p class="text-4xl font-extrabold text-green-400">${sent}</p>
-                            <p class="text-sm text-gray-300 mt-1 uppercase tracking-widest text-xs font-bold">PO - Enviada</p>
+                            <p class="text-sm text-gray-300 mt-1 uppercase text-xs font-bold">PO - Enviada</p>
                         </div>
                         <div class="p-4 rounded-lg bg-yellow-900/40 border border-yellow-700/50">
                             <p class="text-4xl font-extrabold text-yellow-400">${prod}</p>
-                            <p class="text-sm text-gray-300 mt-1 uppercase tracking-widest text-xs font-bold">Em Produção</p>
+                            <p class="text-sm text-gray-300 mt-1 uppercase text-xs font-bold">Em Produção</p>
                         </div>
                     </div>
                     <div class="overflow-x-auto rounded-lg border border-gray-700">
                         <table class="w-full text-sm text-left">
                             <thead class="bg-gray-700 text-gray-200 uppercase text-[10px]">
-                                <tr><th class="px-4 py-3">ID PO / PI</th><th class="px-4 py-3">Fornecedor</th><th class="px-4 py-3">Item</th><th class="px-4 py-3 text-center">Status</th></tr>
+                                <tr><th class="px-4 py-3">ID PO</th><th class="px-4 py-3">Fornecedor</th><th class="px-4 py-3">Item</th><th class="px-4 py-3 text-center">Status</th></tr>
                             </thead>
                             <tbody class="divide-y divide-gray-700">
                                 ${MOCK_OPEN_POS.map(p => {
                                     const st = getOpenPOStatus(p.readyDate);
-                                    return `<tr class="hover:bg-gray-700"><td class="px-4 py-3 text-blue-400 font-bold">${p.id}</td><td class="px-4 py-3">${p.supplier}</td><td class="px-4 py-3 text-gray-300">${p.item} (${p.quantity} ${p.units || 'un'})</td><td class="px-4 py-3 text-center"><span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase ${st.color}">${st.status}</span></td></tr>`
+                                    return `<tr class="hover:bg-gray-700"><td class="px-4 py-3 text-blue-400 font-bold">${p.id}</td><td class="px-4 py-3">${p.supplier}</td><td class="px-4 py-3 text-gray-300">${p.item} (${p.quantity} ${p.units})</td><td class="px-4 py-3 text-center"><span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase ${st.color}">${st.status}</span></td></tr>`
                                 }).join('')}
                             </tbody>
                         </table>
@@ -385,22 +385,19 @@
             if (MOCK_SHIPMENTS_DATA.length > 0) {
                 shipWrapper.classList.remove('hidden');
                 shipContainer.innerHTML = MOCK_SHIPMENTS_DATA.map(createShipmentCard).join('');
-            } else {
-                shipWrapper.classList.add('hidden');
-            }
+            } else { shipWrapper.classList.add('hidden'); }
 
             // 3. S&OP
             const { simulation, projectionMonths } = calculateStockSimulation();
             const invSec = document.getElementById('inventory-control');
-            const headerMonths = projectionMonths.map(m => `<th colspan="3" class="px-3 py-3 text-center text-xs font-medium text-gray-300 uppercase border-l border-gray-700 bg-gray-700/50">${m}</th>`).join('');
-            const subHeaders = projectionMonths.map(() => `<th class="px-3 py-2 text-right text-[10px] text-gray-400 border-l border-gray-700">Cheg</th><th class="px-3 py-2 text-right text-[10px] text-gray-400">Vend</th><th class="px-3 py-2 text-right text-[10px] text-gray-400 font-bold">Saldo</th>`).join('');
-
+            const hMonths = projectionMonths.map(m => `<th colspan="3" class="px-3 py-3 text-center text-xs font-medium text-gray-300 uppercase border-l border-gray-700 bg-gray-700/50">${m}</th>`).join('');
+            const sHeaders = projectionMonths.map(() => `<th class="px-3 py-2 text-right text-[10px] text-gray-400 border-l border-gray-700">Cheg</th><th class="px-3 py-2 text-right text-[10px] text-gray-400">Vend</th><th class="px-3 py-2 text-right text-[10px] text-gray-400 font-bold">Saldo</th>`).join('');
             invSec.innerHTML = `<div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-xl mt-8">
                 <h3 class="text-2xl font-bold text-white mb-4 border-b border-gray-700 pb-2">Projeção de Estoque Futuro (S&OP)</h3>
-                <div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-700">
-                    <thead class="bg-gray-700 text-gray-200">
-                        <tr><th rowspan="2" class="px-6 py-3 text-left text-xs uppercase sticky left-0 bg-gray-700">Item</th><th rowspan="2" class="px-6 py-3 text-right text-xs uppercase border-l border-gray-600">Estoque</th>${headerMonths}</tr>
-                        <tr class="bg-gray-700/70">${subHeaders}</tr>
+                <div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-700 border-collapse">
+                    <thead class="bg-gray-700">
+                        <tr><th rowspan="2" class="px-6 py-3 text-left text-xs uppercase sticky left-0 bg-gray-700">Item</th><th rowspan="2" class="px-6 py-3 text-right text-xs uppercase border-l border-gray-600">Estoque</th>${hMonths}</tr>
+                        <tr class="bg-gray-700/70">${sHeaders}</tr>
                     </thead>
                     <tbody class="divide-y divide-gray-700">
                         ${Object.entries(simulation).map(([item, d]) => {
@@ -421,27 +418,15 @@
                 <h3 class="text-2xl font-bold text-red-500 mb-4 border-b border-red-900/40 pb-2 flex items-center">🚨 Sugestões de Reposição Urgente</h3>
                 <div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-700">
                     <thead class="bg-red-900/20 text-gray-200">
-                        <tr class="text-xs uppercase">
-                            <th class="px-4 py-3 text-left">Item</th><th class="px-4 py-3 text-right">Estoque Seg.</th><th class="px-4 py-3 text-right">Lead Time</th>
-                            <th class="px-4 py-3 text-right">Sugestão</th><th class="px-4 py-3 text-center">Mês Déficit</th><th class="px-4 py-3 text-center">Status</th>
-                        </tr>
+                        <tr class="text-[10px] uppercase"><th>Item</th><th>SS</th><th>LT</th><th>Sugestão</th><th>Mês Déficit</th><th>Status</th></tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-700">
-                        ${sug.map(s => `<tr>
-                            <td class="px-4 py-3 font-semibold text-sm">${s.item}</td>
-                            <td class="px-4 py-3 text-right text-sm text-gray-400">${s.ss}</td>
-                            <td class="px-4 py-3 text-right text-sm text-red-400 font-bold">${s.lt} d</td>
-                            <td class="px-4 py-3 text-right text-blue-400 font-bold text-sm">${Math.ceil(s.quantity)}</td>
-                            <td class="px-4 py-3 text-center text-sm text-gray-400">${s.month}</td>
-                            <td class="px-4 py-3 text-center text-sm ${s.urgent ? 'text-red-400 font-bold' : 'text-yellow-400'}">
-                                ${s.urgent ? 'URGENTE (Atrasado)' : 'Ação Necessária'}<br/>
-                                <small class="opacity-70">${s.deadline.toLocaleDateString('pt-BR')}</small>
-                            </td>
-                        </tr>`).join('')}
+                    <tbody class="divide-y divide-gray-700 text-sm">
+                        ${sug.map(s => `<tr><td class="px-4 py-3 font-semibold">${s.item}</td><td class="px-4 py-3 text-right">${s.ss}</td><td class="px-4 py-3 text-right">${s.lt} d</td><td class="px-4 py-3 text-right text-blue-400 font-bold">${Math.ceil(s.quantity)}</td><td class="px-4 py-3 text-center">${s.month}</td><td class="px-4 py-3 text-center ${s.urgent ? 'text-red-400 font-bold' : 'text-yellow-400'}">${s.urgent ? 'URGENTE' : 'Ação Necessária'}<br/><small>${s.deadline.toLocaleDateString('pt-BR')}</small></td></tr>`).join('')}
                     </tbody>
                 </table></div></div>` : '';
         }
 
+        // --- DADOS E SYNC ---
         function rebuildLocalData(masterData) {
             MOCK_OPEN_POS = [];
             let shipmentMap = {};
@@ -450,27 +435,18 @@
                     shipmentMap[row.shipmentId] = shipmentMap[row.shipmentId] || {
                         shipmentId: row.shipmentId, commercialInvoiceId: row.commercialInvoiceId || 'N/A',
                         containerNumber: row.containerNumber, supplier: row.supplier || 'N/A',
-                        name: `Remessa ${row.shipmentId}`, type: row.type || 'N/A',
-                        currentStage: parseInt(row.shipmentCurrentStage) || 3,
+                        name: `Remessa ${row.shipmentId}`, currentStage: parseInt(row.shipmentCurrentStage) || 3,
                         dates: row.dates || {}, purchaseOrders: []
                     };
-                    shipmentMap[row.shipmentId].purchaseOrders.push({
-                        id: row.poId, item: row.item, quantity: parseInt(row.quantity) || 0,
-                        plannedAvailability: row.dates?.estimatedDelivery
-                    });
+                    shipmentMap[row.shipmentId].purchaseOrders.push({ id: row.poId, item: row.item, quantity: parseInt(row.quantity) || 0, plannedAvailability: row.dates?.estimatedDelivery });
                 } else {
-                    MOCK_OPEN_POS.push({
-                        id: row.poId, supplier: row.supplier, item: row.item,
-                        quantity: parseInt(row.quantity) || 0, readyDate: row.poReadyDate,
-                        units: row.units || 'un', currentStage: parseInt(row.poCurrentStage) || 1
-                    });
+                    MOCK_OPEN_POS.push({ id: row.poId, supplier: row.supplier, item: row.item, quantity: parseInt(row.quantity) || 0, readyDate: row.poReadyDate, units: row.units || 'un', currentStage: parseInt(row.poCurrentStage) || 1 });
                 }
             });
-            MOCK_SHIPMENTS_DATA = Object.values(shipmentMap);
+            MOCK_SHIPMENTS_DATA = Object.values(shipmentMap).filter(s => s.purchaseOrders.length > 0);
             renderOrders();
         }
 
-        // --- FIREBASE CORE ---
         async function setupFirebase() {
             try {
                 const app = initializeApp(firebaseConfig);
@@ -489,25 +465,19 @@
                         }
                     });
                 });
-            } catch (err) { console.error("Firebase Error:", err); }
+            } catch (err) { console.error(err); }
         }
 
         function startDataListener() {
             const masterRef = collection(db, `artifacts/${appId}/users/${userId}/master_po_data`);
             const invRef = collection(db, `artifacts/${appId}/users/${userId}/inventory_params`);
             const metaRef = doc(db, `artifacts/${appId}/users/${userId}/app_metadata/last_update`);
-
             onSnapshot(metaRef, (snap) => {
                 const last = snap.exists() ? snap.data().timestamp : null;
                 const el = document.getElementById('last-update-time');
                 if (last?.toDate) el.textContent = last.toDate().toLocaleString('pt-BR');
             });
-
-            onSnapshot(masterRef, (snap) => {
-                const data = snap.docs.map(d => d.data());
-                rebuildLocalData(data);
-            });
-
+            onSnapshot(masterRef, (snap) => rebuildLocalData(snap.docs.map(d => d.data())));
             onSnapshot(invRef, (snap) => {
                 const data = snap.docs.map(d => d.data());
                 MOCK_INVENTORY = {}; MOCK_REPLENISHMENT_PARAMS = {}; MOCK_SALES_FORECAST = {};
@@ -515,34 +485,25 @@
                     const item = row.item;
                     MOCK_INVENTORY[item] = row.currentStock || 0;
                     MOCK_REPLENISHMENT_PARAMS[item] = { SS_units: row.ssUnits || 0, LT_days: row.ltDays || 0 };
-                    Object.keys(row).forEach(k => {
-                        if (k.startsWith('sales_')) {
-                            const m = k.substring(6);
-                            MOCK_SALES_FORECAST[m] = MOCK_SALES_FORECAST[m] || {};
-                            MOCK_SALES_FORECAST[m][item] = row[k];
-                        }
-                    });
+                    Object.keys(row).forEach(k => { if (k.startsWith('sales_')) { const m = k.substring(6); MOCK_SALES_FORECAST[m] = MOCK_SALES_FORECAST[m] || {}; MOCK_SALES_FORECAST[m][item] = row[k]; } });
                 });
                 renderOrders();
             });
         }
 
-        // --- EXPOSIÇÃO GLOBAL PARA O HTML ---
+        // --- INTERAÇÕES HTML ---
         window.toggleDropdown = () => document.getElementById('dropdownMenu').classList.toggle('hidden');
         window.handleImportClick = (type) => document.getElementById(type === 'master' ? 'fileInputMaster' : 'fileInputSOP').click();
-        
         window.handleDownloadTemplateCSV = () => {
             const h = "action;poId;piNo;supplier;item;quantity;units;poReadyDate;poCurrentStage;shipmentId;commercialInvoiceId;type;shipmentCurrentStage;estimatedDeparture;estimatedArrival;estimatedDelivery;containerNumber";
             const b = new Blob([h], { type: 'text/csv' });
             const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = "modelo_logistica.csv"; a.click();
         };
-
         window.handleDownloadSOPTemplate = () => {
             const h = "item;currentStock;ssUnits;ltDays;sales_2026-01;sales_2026-02";
             const b = new Blob([h], { type: 'text/csv' });
             const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = "modelo_sop.csv"; a.click();
         };
-
         window.handleImportCSV = (e) => {
             const file = e.target.files[0]; if (!file) return;
             const reader = new FileReader();
@@ -568,11 +529,10 @@
                 });
                 batch.set(doc(db, `artifacts/${appId}/users/${userId}/app_metadata`, 'last_update'), { timestamp: serverTimestamp() }, { merge: true });
                 await batch.commit();
-                showToast('Logística importada com sucesso!', 'bg-blue-600');
+                showToast('Importado com sucesso!', 'bg-blue-600');
             };
             reader.readAsText(file);
         };
-
         window.handleImportSOPCSV = (e) => {
             const file = e.target.files[0]; if (!file) return;
             const reader = new FileReader();
@@ -592,11 +552,10 @@
                 });
                 batch.set(doc(db, `artifacts/${appId}/users/${userId}/app_metadata`, 'last_update'), { timestamp: serverTimestamp() }, { merge: true });
                 await batch.commit();
-                showToast('S&OP Importado com sucesso!', 'bg-purple-600');
+                showToast('S&OP Importado!', 'bg-purple-600');
             };
             reader.readAsText(file);
         };
-
         window.updateShipmentStage = async (id, stage) => {
             const ship = MOCK_SHIPMENTS_DATA.find(s => s.shipmentId === id); if (!ship) return;
             const batch = writeBatch(db); const today = new Date().toISOString().slice(0, 10);
@@ -611,7 +570,6 @@
             await batch.commit();
             showToast('Estágio atualizado!', 'bg-green-600');
         };
-
         window.handleExportCSV = () => showToast('Funcionalidade em desenvolvimento', 'bg-gray-600');
 
         function showToast(msg, color) {
@@ -622,7 +580,6 @@
             setTimeout(() => { t.classList.replace('opacity-100', 'opacity-0'); }, 3000);
         }
 
-        // --- INICIALIZAÇÃO ---
         setupFirebase();
     </script>
 </body>
