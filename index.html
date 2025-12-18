@@ -144,7 +144,7 @@
 
         function calculateAvailability(arrivalDateStr) {
             const date = getDateObject(arrivalDateStr);
-            if (!date) return '-';
+            if (!date) return null;
             const availDate = new Date(date);
             availDate.setDate(availDate.getDate() + 16);
             const y = availDate.getFullYear();
@@ -183,9 +183,12 @@
             
             MOCK_SHIPMENTS_DATA.forEach(ship => {
                 ship.purchaseOrders.forEach(po => {
-                    const baseDate = ship.dates?.portArrivalDate && ship.dates.portArrivalDate !== '-' ? ship.dates.portArrivalDate : ship.dates?.estimatedArrival;
-                    if (baseDate && baseDate !== '-') {
-                        const availDateStr = calculateAvailability(baseDate);
+                    const baseArrival = (ship.dates?.portArrivalDate && ship.dates.portArrivalDate !== '-') 
+                        ? ship.dates.portArrivalDate 
+                        : ship.dates?.estimatedArrival;
+                    
+                    if (baseArrival && baseArrival !== '-') {
+                        const availDateStr = calculateAvailability(baseArrival);
                         const availDate = getDateObject(availDateStr);
                         if (availDate) {
                             const key = getYearMonthKey(availDate);
@@ -262,13 +265,18 @@
         function createShipmentCard(shipment) {
             const currentStage = STAGES_LIST.find(s => s.id === shipment.currentStage);
             
+            // Lógica de fallback para datas Reais: se vazio, usa estimada com sufixo " E" e cor amarela
             const displayDateWithFallback = (real, est) => {
-                if (real && real !== 'null' && real !== '-') return formatDate(real);
-                if (est && est !== 'null' && est !== '-') return `<span class="text-yellow-400 font-bold">E ${formatDate(est)}</span>`;
+                const formattedReal = formatDate(real);
+                if (formattedReal !== '-') return formattedReal;
+                
+                const formattedEst = formatDate(est);
+                if (formattedEst !== '-') return `<span class="text-yellow-400 font-bold">${formattedEst} E</span>`;
+                
                 return '-';
             };
 
-            const baseArrival = shipment.dates.portArrivalDate && shipment.dates.portArrivalDate !== '-' ? shipment.dates.portArrivalDate : shipment.dates.estimatedArrival;
+            const baseArrival = (shipment.dates.portArrivalDate && shipment.dates.portArrivalDate !== '-') ? shipment.dates.portArrivalDate : shipment.dates.estimatedArrival;
             const availDateStr = calculateAvailability(baseArrival);
 
             return `<div class="bg-gray-800 rounded-xl shadow-xl border border-gray-700 p-6 mb-8">
@@ -435,8 +443,8 @@
                             estimatedDelivery: parseDateString(row.estimatedDelivery), 
                             placed: parseDateString(row.poSentDate),
                             readyToShipDate: parseDateString(row.poReadyDate),
-                            shipDepartureDate: row.shipDepartureDate || "-", 
-                            portArrivalDate: row.portArrivalDate || "-" 
+                            shipDepartureDate: parseDateString(row.shipDepartureDate), 
+                            portArrivalDate: parseDateString(row.portArrivalDate) 
                         }, purchaseOrders: []
                     };
                     shipmentMap[sId].purchaseOrders.push({ id: row.poId, item: row.item, quantity: parseInt(row.quantity) || 0, plannedAvailability: parseDateString(row.estimatedDelivery) });
@@ -461,7 +469,6 @@
                     const vals = line.split(';');
                     const obj = {}; headers.forEach((h, i) => obj[h] = vals[i] || "");
                     
-                    // Pula linhas vazias ou que pareçam cabeçalhos/instruções
                     if (!obj.poId || obj.poId.toLowerCase().includes("id po") || obj.poId.toLowerCase().includes("obrigatório")) return;
 
                     const existingIdx = MASTER_PO_LIST.findIndex(p => p.poId === obj.poId);
@@ -488,7 +495,6 @@
                 lines.slice(1).forEach(line => {
                     const vals = line.split(';'); const obj = {}; headers.forEach((h, i) => obj[h] = vals[i] || "");
                     
-                    // Pula linhas vazias ou que pareçam cabeçalhos de exemplo ("Nome Item")
                     if (!obj.item || obj.item.toLowerCase().includes("nome item") || obj.item.toLowerCase().includes("item-name")) return;
 
                     MOCK_INVENTORY[obj.item] = Number(obj.currentStock) || 0;
