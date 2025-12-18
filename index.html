@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rastreamento de Remessas (Containers) - Gestão Local</title>
+    <title>One Base Control - Gestão Local</title>
     <!-- Carregamento do Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Configuração do Tailwind para usar a fonte Inter -->
@@ -44,7 +44,7 @@
     </div>
 
     <header class="text-center mb-10">
-        <h1 class="text-4xl font-extrabold text-white mb-2">Status Logístico de Remessas (Consolidação/Contêineres)</h1>
+        <h1 class="text-4xl font-extrabold text-white mb-2">One Base Control (Painel de Consolidação)</h1>
         <p class="text-xl text-gray-400">Gestão Integrada: Da Consolidação de Pedidos ao Monitoramento do Fluxo Logístico.</p>
         
         <div id="controls" class="mt-8 flex flex-wrap justify-center gap-4 space-y-2 md:space-y-0">
@@ -58,7 +58,7 @@
             <div class="relative inline-block text-left">
                 <button id="dropdownBtn" type="button" onclick="window.toggleDropdown()" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 flex items-center">
                     📄 Baixar Modelos CSV
-                    <svg class="ml-2 w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <svg class="ml-2 w-4 h-4" xmlns="http://www.w3.org/2000/swap" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                     </svg>
                 </button>
@@ -111,7 +111,7 @@
             { id: 5, name: "No Porto (Origem)", icon: "⚓" },
             { id: 6, name: "Navegando (Em Trânsito)", icon: "🚢" },
             { id: 7, name: "Chegou! (Brasil)", icon: "📍" }, 
-            { id: 8, name: "Em Desembaraço", icon: "🛡️" },
+            { id: 8, name: "Em Desembaraço aduaneiro", icon: "🛡️" },
             { id: 9, name: "Liberado", icon: "🔑" },
             { id: 10, name: "Em Conferência", icon: "🔍" },
             { id: 11, name: "Disponível para Venda", icon: "✅" }
@@ -153,11 +153,6 @@
             return `${y}-${m}-${d}`;
         }
 
-        function getYearMonthKey(date) {
-            if (!date) return null;
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        }
-
         function getOpenPOStatus(readyDateStr) {
             const readyDate = getDateObject(readyDateStr);
             if (!readyDate) return { status: 'N/A', color: 'text-gray-400 bg-gray-700' };
@@ -176,6 +171,11 @@
             return { status: 'No Prazo', color: 'bg-green-900/40 text-green-400' };
         }
 
+        function getYearMonthKey(date) {
+            if (!date) return null;
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
+
         // --- CÁLCULOS S&OP ---
         function calculateStockSimulation() {
             const simulation = {};
@@ -189,8 +189,10 @@
                         const availDate = getDateObject(availDateStr);
                         if (availDate) {
                             const key = getYearMonthKey(availDate);
-                            arrivalData[key] = arrivalData[key] || {};
-                            arrivalData[key][po.item] = (arrivalData[key][po.item] || 0) + po.quantity;
+                            if (key) {
+                                arrivalData[key] = arrivalData[key] || {};
+                                arrivalData[key][po.item] = (arrivalData[key][po.item] || 0) + po.quantity;
+                            }
                         }
                     }
                 });
@@ -218,6 +220,29 @@
         }
 
         // --- RENDERIZADORES ---
+        function generatePOListInShipment(purchaseOrders, containerEstimatedDelivery) {
+            return `
+                <div class="mt-6 border border-gray-700 rounded-lg overflow-hidden">
+                    <div class="bg-gray-700/50 p-2"><h4 class="text-xs font-bold uppercase text-gray-300">Pedidos de Compra (POs) Consolidados</h4></div>
+                    <table class="w-full text-xs text-left">
+                        <thead class="bg-gray-800 text-gray-400 uppercase text-[9px]">
+                            <tr><th class="px-4 py-2">ID PO</th><th class="px-4 py-2">Item</th><th class="px-4 py-2 text-right">Qtd</th><th class="px-4 py-2 text-center">Status</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-700">
+                            ${purchaseOrders.map(po => {
+                                const st = getPOStatus(po.plannedAvailability, containerEstimatedDelivery);
+                                return `<tr class="hover:bg-gray-700/30">
+                                    <td class="px-4 py-2 text-blue-400 font-bold">${po.id}</td>
+                                    <td class="px-4 py-2 text-gray-300">${po.item}</td>
+                                    <td class="px-4 py-2 text-right text-gray-100 font-mono">${po.quantity.toLocaleString('pt-BR')}</td>
+                                    <td class="px-4 py-2 text-center"><span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold ${st.color}">${st.status}</span></td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+        }
+
         function generateTimeline(currentStageId, shipmentId) {
             return `<div class="flex justify-between items-start text-xs font-semibold mt-4 mb-2 overflow-x-auto p-2">
                 ${STAGES_LIST.map(stage => {
@@ -236,11 +261,14 @@
 
         function createShipmentCard(shipment) {
             const currentStage = STAGES_LIST.find(s => s.id === shipment.currentStage);
-            const displayDate = (real, est) => {
+            
+            // Lógica de fallback para datas Reais: se vazio, usa estimada com prefixo "E "
+            const displayDateWithFallback = (real, est) => {
                 if (real && real !== 'null' && real !== '-') return formatDate(real);
-                if (est && est !== 'null' && est !== '-') return `<span class="text-yellow-400 font-bold">${formatDate(est)} E</span>`;
+                if (est && est !== 'null' && est !== '-') return `<span class="text-yellow-400 font-bold">E ${formatDate(est)}</span>`;
                 return '-';
             };
+
             const baseArrival = shipment.dates.portArrivalDate && shipment.dates.portArrivalDate !== '-' ? shipment.dates.portArrivalDate : shipment.dates.estimatedArrival;
             const availDateStr = calculateAvailability(baseArrival);
 
@@ -266,14 +294,14 @@
                         <h3 class="text-xs font-bold text-blue-400 uppercase mb-2 tracking-wider">Logística (Real)</h3>
                         <div class="space-y-1 text-sm text-gray-300">
                             <p><strong>PO Enviada:</strong> ${formatDate(shipment.dates.placed)}</p>
-                            <p><strong>Prontidão:</strong> ${displayDate(shipment.dates.readyToShipDate, shipment.dates.estimatedDeparture)}</p>
-                            <p><strong>Embarque:</strong> ${displayDate(shipment.dates.shipDepartureDate, shipment.dates.estimatedDeparture)}</p>
-                            <p><strong>Chegada:</strong> ${displayDate(shipment.dates.portArrivalDate, shipment.dates.estimatedArrival)}</p>
+                            <p><strong>Prontidão:</strong> ${displayDateWithFallback(shipment.dates.readyToShipDate, shipment.dates.estimatedDeparture)}</p>
+                            <p><strong>Embarque:</strong> ${displayDateWithFallback(shipment.dates.shipDepartureDate, shipment.dates.estimatedDeparture)}</p>
+                            <p><strong>Chegada:</strong> ${displayDateWithFallback(shipment.dates.portArrivalDate, shipment.dates.estimatedArrival)}</p>
                             <p class="text-green-400 font-bold underline italic mt-2">Disponibilidade (D+16): ${formatDate(availDateStr)}</p>
                         </div>
                     </div>
                     <div>
-                        <h3 class="text-xs font-bold text-yellow-400 uppercase mb-2 tracking-wider">Estimativas</h3>
+                        <h3 class="text-xs font-bold text-blue-400 uppercase mb-2 tracking-wider">Estimativas</h3>
                         <div class="space-y-1 text-sm text-gray-300">
                             <p><strong>ETD:</strong> <span class="text-yellow-400 font-bold">${formatDate(shipment.dates.estimatedDeparture)}</span></p>
                             <p><strong>ETA:</strong> <span class="text-yellow-400 font-bold">${formatDate(shipment.dates.estimatedArrival)}</span></p>
@@ -282,13 +310,7 @@
                     </div>
                 </div>
                 ${generateTimeline(shipment.currentStage, shipment.shipmentId)}
-                <div class="mt-6 border border-gray-700 rounded-lg overflow-hidden">
-                    <table class="w-full text-xs text-left"><thead class="bg-gray-700 text-gray-400"><tr><th class="px-4 py-2 uppercase text-[9px]">ID PO</th><th class="px-4 py-2 uppercase text-[9px]">Item</th><th class="px-4 py-2 text-right uppercase text-[9px]">Qtd</th><th class="px-4 py-2 text-center uppercase text-[9px]">Status</th></tr></thead>
-                    <tbody class="divide-y divide-gray-700">${shipment.purchaseOrders.map(po => {
-                        const st = getPOStatus(po.plannedAvailability, shipment.dates.estimatedDelivery);
-                        return `<tr><td class="px-4 py-2 text-blue-400 font-bold">${po.id}</td><td class="px-4 py-2">${po.item}</td><td class="px-4 py-2 text-right">${po.quantity.toLocaleString('pt-BR')}</td><td class="px-4 py-2 text-center"><span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold ${st.color}">${st.status}</span></td></tr>`
-                    }).join('')}</tbody></table>
-                </div>
+                ${generatePOListInShipment(shipment.purchaseOrders, shipment.dates.estimatedDelivery)}
             </div>`;
         }
 
@@ -325,7 +347,6 @@
                 shipContainer.innerHTML = MOCK_SHIPMENTS_DATA.map(createShipmentCard).join('');
             } else { shipWrapper.classList.add('hidden'); }
 
-            // 3. S&OP e Sugestões
             renderSOP();
         }
 
