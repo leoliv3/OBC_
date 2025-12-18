@@ -75,20 +75,20 @@
         </div>
     </header>
 
-    <!-- Quadrante 1: POs Abertas -->
-    <section id="open-po-summary" class="max-w-7xl mx-auto mb-8"></section>
+    <!-- 1. Quadro de POs Abertas -->
+    <section id="open-po-summary" class="max-w-7xl mx-auto mb-8 hidden"></section>
 
-    <!-- Quadrante 2: Remessas Consolidadas -->
+    <!-- 2. Remessas Consolidadas -->
     <div id="shipment-wrapper" class="max-w-7xl mx-auto mb-12 hidden">
         <h3 class="text-2xl font-bold text-white mb-6 border-b border-gray-700 pb-2">📦 Remessas Consolidadas (Containers)</h3>
         <main id="shipment-container" class="space-y-8"></main>
     </div>
 
-    <!-- Quadrante 3: Projeção de Estoque -->
-    <section id="inventory-control" class="max-w-7xl mx-auto mb-8"></section>
+    <!-- 3. Projeção de Estoque -->
+    <section id="inventory-control" class="max-w-7xl mx-auto mb-8 hidden"></section>
 
-    <!-- Quadrante 4: Sugestões de Reposição -->
-    <section id="purchase-suggestions" class="max-w-7xl mx-auto mb-8"></section>
+    <!-- 4. Sugestões de Reposição -->
+    <section id="purchase-suggestions" class="max-w-7xl mx-auto mb-8 hidden"></section>
 
     <div id="toast" class="fixed bottom-4 right-4 p-4 rounded-lg text-white z-50 transition-all duration-300 shadow-2xl opacity-0 pointer-events-none"></div>
 
@@ -153,6 +153,11 @@
             return `${y}-${m}-${d}`;
         }
 
+        function getYearMonthKey(date) {
+            if (!date) return null;
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
+
         function getOpenPOStatus(readyDateStr) {
             const readyDate = getDateObject(readyDateStr);
             if (!readyDate) return { status: 'N/A', color: 'text-gray-400 bg-gray-700' };
@@ -169,11 +174,6 @@
             if (diff > 5) return { status: 'Atrasado', color: 'bg-red-900/40 text-red-400' };
             if (diff < -5) return { status: 'Adiantado', color: 'bg-yellow-900/40 text-yellow-400' };
             return { status: 'No Prazo', color: 'bg-green-900/40 text-green-400' };
-        }
-
-        function getYearMonthKey(date) {
-            if (!date) return null;
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         }
 
         // --- CÁLCULOS S&OP ---
@@ -262,7 +262,6 @@
         function createShipmentCard(shipment) {
             const currentStage = STAGES_LIST.find(s => s.id === shipment.currentStage);
             
-            // Lógica de fallback para datas Reais: se vazio, usa estimada com prefixo "E "
             const displayDateWithFallback = (real, est) => {
                 if (real && real !== 'null' && real !== '-') return formatDate(real);
                 if (est && est !== 'null' && est !== '-') return `<span class="text-yellow-400 font-bold">E ${formatDate(est)}</span>`;
@@ -318,6 +317,7 @@
             // 1. POs Abertas
             const poSec = document.getElementById('open-po-summary');
             if (MOCK_OPEN_POS.length > 0) {
+                poSec.classList.remove('hidden');
                 const total = MOCK_OPEN_POS.length;
                 const sent = MOCK_OPEN_POS.filter(p => p.currentStage === 1).length;
                 const prod = MOCK_OPEN_POS.filter(p => p.currentStage === 2).length;
@@ -337,7 +337,10 @@
                         }).join('')}</tbody></table>
                     </div>
                 </div>`;
-            } else { poSec.innerHTML = ''; }
+            } else { 
+                poSec.innerHTML = '';
+                poSec.classList.add('hidden');
+            }
 
             // 2. Remessas
             const shipWrapper = document.getElementById('shipment-wrapper');
@@ -345,7 +348,9 @@
             if (MOCK_SHIPMENTS_DATA.length > 0) {
                 shipWrapper.classList.remove('hidden');
                 shipContainer.innerHTML = MOCK_SHIPMENTS_DATA.map(createShipmentCard).join('');
-            } else { shipWrapper.classList.add('hidden'); }
+            } else { 
+                shipWrapper.classList.add('hidden'); 
+            }
 
             renderSOP();
         }
@@ -353,12 +358,17 @@
         function renderSOP() {
             const { simulation, projectionMonths: months } = calculateStockSimulation();
             const invSec = document.getElementById('inventory-control');
+            const sugSec = document.getElementById('purchase-suggestions');
             
             if (!months.length) {
                 invSec.innerHTML = '';
+                invSec.classList.add('hidden');
+                sugSec.innerHTML = '';
+                sugSec.classList.add('hidden');
                 return;
             }
 
+            invSec.classList.remove('hidden');
             const headerMonths = months.map(m => `<th colspan="3" class="px-3 py-3 text-center text-xs border-l border-gray-700 bg-gray-700/50 uppercase">${m}</th>`).join('');
             const subHeaders = months.map(() => `<th class="px-3 py-2 text-right text-[10px] border-l border-gray-700 uppercase">Cheg</th><th class="px-3 py-2 text-right text-[10px] uppercase">Vend</th><th class="px-3 py-2 text-right text-[10px] font-bold uppercase">Saldo</th>`).join('');
 
@@ -395,13 +405,18 @@
                 }
             });
 
-            const sugSec = document.getElementById('purchase-suggestions');
-            sugSec.innerHTML = suggestions.length ? `<div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-xl mt-8">
-                <h3 class="text-2xl font-bold text-red-500 mb-4 border-b border-red-900/40 pb-2 flex items-center">🚨 Sugestões de Reposição Urgente</h3>
-                <div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-700 text-sm">
-                    <thead class="bg-red-900/20 text-gray-200 uppercase text-[10px]"><tr><th class="px-4 py-3 text-left">Item</th><th class="px-4 py-3 text-right">Estoque Seg. (SS)</th><th class="px-4 py-3 text-right">Lead Time (LT)</th><th class="px-4 py-3 text-right">Qtd Sugerida</th><th class="px-4 py-3 text-center">Mês Déficit</th><th class="px-4 py-3 text-center">Status / Data Limite</th></tr></thead>
-                    <tbody class="divide-y divide-gray-700 text-xs">${suggestions.map(s => `<tr><td class="px-4 py-3 font-semibold text-sm">${s.item}</td><td class="px-4 py-3 text-right">${s.ss.toLocaleString('pt-BR')}</td><td class="px-4 py-3 text-right">${s.lt} d</td><td class="px-4 py-3 text-right text-blue-400 font-bold">${Math.ceil(s.quantity).toLocaleString('pt-BR')}</td><td class="px-4 py-3 text-center">${s.month}</td><td class="px-4 py-3 text-center ${s.urgent ? 'text-red-400 font-bold' : 'text-yellow-400'}">${s.urgent ? 'URGENTE' : 'Ação Necessária'}<br/><small class="opacity-70">${s.deadline.toLocaleDateString('pt-BR')}</small></td></tr>`).join('')}</tbody>
-                </table></div></div>` : '';
+            if (suggestions.length > 0) {
+                sugSec.classList.remove('hidden');
+                sugSec.innerHTML = `<div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-xl mt-8">
+                    <h3 class="text-2xl font-bold text-red-500 mb-4 border-b border-red-900/40 pb-2 flex items-center">🚨 Sugestões de Reposição Urgente</h3>
+                    <div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-700 text-sm">
+                        <thead class="bg-red-900/20 text-gray-200 uppercase text-[10px]"><tr><th class="px-4 py-3 text-left">Item</th><th class="px-4 py-3 text-right">Estoque Seg. (SS)</th><th class="px-4 py-3 text-right">Lead Time (LT)</th><th class="px-4 py-3 text-right">Qtd Sugerida</th><th class="px-4 py-3 text-center">Mês Déficit</th><th class="px-4 py-3 text-center">Status / Data Limite</th></tr></thead>
+                        <tbody class="divide-y divide-gray-700 text-xs">${suggestions.map(s => `<tr><td class="px-4 py-3 font-semibold text-sm">${s.item}</td><td class="px-4 py-3 text-right">${s.ss.toLocaleString('pt-BR')}</td><td class="px-4 py-3 text-right">${s.lt} d</td><td class="px-4 py-3 text-right text-blue-400 font-bold">${Math.ceil(s.quantity).toLocaleString('pt-BR')}</td><td class="px-4 py-3 text-center">${s.month}</td><td class="px-4 py-3 text-center ${s.urgent ? 'text-red-400 font-bold' : 'text-yellow-400'}">${s.urgent ? 'URGENTE' : 'Ação Necessária'}<br/><small class="opacity-70">${s.deadline.toLocaleDateString('pt-BR')}</small></td></tr>`).join('')}</tbody>
+                    </table></div></div>`;
+            } else {
+                sugSec.innerHTML = '';
+                sugSec.classList.add('hidden');
+            }
         }
 
         function rebuildLocalData(dataList) {
@@ -445,7 +460,9 @@
                 lines.slice(1).forEach(line => {
                     const vals = line.split(';');
                     const obj = {}; headers.forEach((h, i) => obj[h] = vals[i] || "");
-                    if (!obj.poId) return;
+                    
+                    // Pula linhas vazias ou que pareçam cabeçalhos/instruções
+                    if (!obj.poId || obj.poId.toLowerCase().includes("id po") || obj.poId.toLowerCase().includes("obrigatório")) return;
 
                     const existingIdx = MASTER_PO_LIST.findIndex(p => p.poId === obj.poId);
                     if (existingIdx > -1) {
@@ -467,13 +484,16 @@
                 const lines = ev.target.result.split('\n').filter(l => l.trim());
                 if (lines.length < 2) return;
                 const headers = lines[0].split(';').map(h => h.trim().replace(/"/g, ''));
+                
                 lines.slice(1).forEach(line => {
                     const vals = line.split(';'); const obj = {}; headers.forEach((h, i) => obj[h] = vals[i] || "");
-                    if (obj.item) {
-                        MOCK_INVENTORY[obj.item] = Number(obj.currentStock) || 0;
-                        MOCK_REPLENISHMENT_PARAMS[obj.item] = { SS_units: Number(obj.ssUnits) || 0, LT_days: Number(obj.ltDays) || 0 };
-                        Object.keys(obj).forEach(k => { if (k.startsWith('sales_')) { const m = k.substring(6); MOCK_SALES_FORECAST[m] = MOCK_SALES_FORECAST[m] || {}; MOCK_SALES_FORECAST[m][obj.item] = Number(obj[k]) || 0; } });
-                    }
+                    
+                    // Pula linhas vazias ou que pareçam cabeçalhos de exemplo ("Nome Item")
+                    if (!obj.item || obj.item.toLowerCase().includes("nome item") || obj.item.toLowerCase().includes("item-name")) return;
+
+                    MOCK_INVENTORY[obj.item] = Number(obj.currentStock) || 0;
+                    MOCK_REPLENISHMENT_PARAMS[obj.item] = { SS_units: Number(obj.ssUnits) || 0, LT_days: Number(obj.ltDays) || 0 };
+                    Object.keys(obj).forEach(k => { if (k.startsWith('sales_')) { const m = k.substring(6); MOCK_SALES_FORECAST[m] = MOCK_SALES_FORECAST[m] || {}; MOCK_SALES_FORECAST[m][obj.item] = Number(obj[k]) || 0; } });
                 });
                 renderOrders();
                 showToast("Estoque atualizado!", "bg-purple-600");
@@ -514,7 +534,6 @@
             setTimeout(() => { if (t) t.classList.replace('opacity-100', 'opacity-0'); }, 3000);
         }
 
-        // --- INICIALIZAÇÃO ---
         window.onload = renderOrders;
     </script>
 </body>
