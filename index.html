@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rastreamento de Remessas (Containers) - Status e Estimativas</title>
+    <!-- Carregamento do Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configuração do Tailwind para usar a fonte Inter -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root { font-family: 'Inter', sans-serif; }
+        
+        /* Animação para o navio em trânsito */
+        .ship-in-transit {
+            animation: move-ship 4s infinite linear;
+        }
+
+        @keyframes move-ship {
+            0% { transform: translateX(0) rotate(0deg); }
+            50% { transform: translateX(10px) rotate(3deg); }
+            100% { transform: translateX(0) rotate(0deg); }
+        }
+        
+        /* Header fixo para tabela de estoque */
+        #inventory-control th.sticky {
+            position: sticky;
+            left: 0;
+            z-index: 10;
+        }
+        #inventory-control th.sticky.left-16 {
+            left: 64px;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 min-h-screen p-4 md:p-8 text-gray-100">
+
+    <!-- Indicador de Última Atualização -->
+    <div class="max-w-7xl mx-auto">
+        <div id="last-update-display" class="text-sm text-gray-500 mb-4 text-left">
+            Última Atualização: <span id="last-update-time" class="text-yellow-400">N/A</span>
+        </div>
+    </div>
+
+    <!-- Cabeçalho Principal -->
+    <header class="text-center mb-10">
+        <h1 class="text-4xl font-extrabold text-white mb-2">Status Logístico de Remessas (Consolidação/Contêineres)</h1>
+        <p class="text-xl text-gray-400">Gestão Integrada: Da Consolidação de Pedidos ao Monitoramento do Fluxo Logístico.</p>
+        
+        <div id="user-status" class="text-xs text-gray-500 mb-4">
+            Status: <span id="auth-status" class="text-yellow-400">Autenticando...</span> | User ID: <span id="user-id-display">N/A</span>
+        </div>
+        
+        <!-- Controles de Importação/Exportação -->
+        <div id="controls" class="mt-4 flex flex-wrap justify-center gap-4 space-y-2 md:space-y-0">
+            <button onclick="window.handleImportClick('master')" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200">
+                📥 Importar POs / Remessas
+            </button>
+            
+            <button onclick="window.handleImportClick('sop')" 
+                    class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200">
+                📊 Importar S&OP / Estoque
+            </button>
+
+            <button onclick="window.handleExportCSV()" 
+                    class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200">
+                📤 Exportar CSV (Remessas)
+            </button>
+            
+            <!-- Dropdown de Modelos -->
+            <div class="relative inline-block text-left">
+                <button id="dropdownBtn" type="button" onclick="window.toggleDropdown()" 
+                        class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 flex items-center">
+                    📄 Baixar Modelos CSV
+                    <svg class="ml-2 w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+                <div id="dropdownMenu" class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-gray-700 ring-1 ring-black ring-opacity-5 z-20 hidden">
+                    <div class="py-1">
+                        <a href="#" onclick="window.handleDownloadTemplateCSV(); return false;" class="block px-4 py-2 text-sm text-gray-200 hover:bg-gray-600">
+                            Modelo Mestre (POs/Remessas)
+                        </a>
+                        <a href="#" onclick="window.handleDownloadSOPTemplate(); return false;" class="block px-4 py-2 text-sm text-gray-200 hover:bg-gray-600">
+                            Modelo S&OP (Estoque/Vendas)
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inputs invisíveis -->
+            <input type="file" id="fileInputMaster" accept=".csv" class="hidden" onchange="window.handleImportCSV(event)">
+            <input type="file" id="fileInputSOP" accept=".csv" class="hidden" onchange="window.handleImportSOPCSV(event)">
+        </div>
+    </header>
+
+    <!-- Quadrante 1: POs Abertas -->
+    <section id="open-po-summary" class="max-w-7xl mx-auto mb-8"></section>
+
+    <!-- Quadrante 2: Remessas (Container) -->
+    <div id="shipment-wrapper" class="max-w-7xl mx-auto mb-12 hidden">
+        <h3 class="text-2xl font-bold text-white mb-6 border-b border-gray-700 pb-2">📦 Remessas Consolidadas (Commercial Invoices)</h3>
+        <main id="shipment-container" class="space-y-8"></main>
+    </div>
+
+    <!-- Loader -->
+    <div class="text-center py-12" id="loading-message">
+        <svg class="animate-spin h-8 w-8 text-blue-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p class="mt-4 text-gray-400">Sincronizando dados...</p>
+    </div>
+
+    <!-- Quadrante 3: Projeção de Estoque -->
+    <section id="inventory-control" class="max-w-7xl mx-auto mb-8"></section>
+
+    <!-- Quadrante 4: Sugestões de Reposição -->
+    <section id="purchase-suggestions" class="max-w-7xl mx-auto mb-8"></section>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, query, where, writeBatch, serverTimestamp, updateDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- CONFIGURAÇÕES E ESTADO ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : undefined;
+
+        let db, auth;
+        let userId = 'N/A';
+        let isAuthReady = false;
+        const SIMULATED_TODAY = new Date('2025-12-16T00:00:00');
+
+        let MOCK_OPEN_POS = [];
+        let MOCK_SHIPMENTS_DATA = [];
+        let MOCK_INVENTORY = {};
+        let MOCK_SALES_FORECAST = {};
+        let MOCK_REPLENISHMENT_PARAMS = {};
+
+        const STAGES = [
+            { id: 1, name: "PO - Enviada", icon: "📧" },
+            { id: 2, name: "Em produção", icon: "🏭" },
+            { id: 3, name: "Carga Consolidada (CI)", icon: "📋" },
+            { id: 4, name: "Booking Confirmado", icon: "📅" },
+            { id: 5, name: "No Porto (Origem)", icon: "⚓" },
+            { id: 6, name: "Navegando (Em Trânsito)", icon: "🚢" },
+            { id: 7, name: "Chegou! (Brasil)", icon: "📍" }, 
+            { id: 8, name: "Em Desembaraço", icon: "🛡️" },
+            { id: 9, name: "Liberado", icon: "🔑" },
+            { id: 10, name: "Em Conferência", icon: "🔍" },
+            { id: 11, name: "Disponível para Venda", icon: "✅" }
+        ];
+
+        // --- UTILITÁRIOS ---
+        function parseDateString(dateStr) {
+            if (!dateStr || typeof dateStr !== 'string') return null;
+            dateStr = dateStr.trim();
+            const dmy = dateStr.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})$/);
+            if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+            const ymd = dateStr.match(/^(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})$/);
+            if (ymd) return `${ymd[1]}-${ymd[2].padStart(2, '0')}-${ymd[3].padStart(2, '0')}`;
+            return null;
+        }
+
+        function getDateObject(dateStr) {
+            if (!dateStr || dateStr === '-' || dateStr.includes('null')) return null;
+            return new Date(dateStr + 'T00:00:00');
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr || dateStr === 'null' || dateStr === '-') return '-';
+            try {
+                const date = getDateObject(dateStr);
+                if (!date || isNaN(date.getTime())) return '-';
+                return date.toLocaleDateString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+            } catch (e) { return '-'; }
+        }
+
+        function calculateAvailability(arrivalDateStr) {
+            if (!arrivalDateStr || arrivalDateStr === '-' || arrivalDateStr.includes('null')) return '-';
+            try {
+                const arrivalDate = getDateObject(arrivalDateStr);
+                if (!arrivalDate) return '-';
+                arrivalDate.setDate(arrivalDate.getDate() + 16);
+                const y = arrivalDate.getFullYear();
+                const m = String(arrivalDate.getMonth() + 1).padStart(2, '0');
+                const d = String(arrivalDate.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            } catch(e) { return '-'; }
+        }
+
+        function getOpenPOStatus(readyDateStr) {
+            if (!readyDateStr) return { status: 'N/A', color: 'text-gray-400 bg-gray-700' };
+            const readyDate = getDateObject(readyDateStr);
+            if (!readyDate) return { status: 'N/A', color: 'text-gray-400 bg-gray-700' };
+            const diffDays = Math.round((readyDate.getTime() - SIMULATED_TODAY.getTime()) / (1000 * 60 * 60 * 24)); 
+            if (diffDays < 0) return { status: 'Atrasado', color: 'bg-red-900/40 text-red-400' };
+            if (diffDays <= 14) return { status: 'No Prazo', color: 'bg-green-900/40 text-green-400' };
+            return { status: 'Adiantado', color: 'bg-yellow-900/40 text-yellow-400' };
+        }
+
+        // --- CÁLCULOS DE SIMULAÇÃO ---
+
+        function calculateStockSimulation() {
+            const simulation = {};
+            const arrivalData = {};
+            
+            MOCK_SHIPMENTS_DATA.forEach(ship => {
+                ship.purchaseOrders.forEach(po => {
+                    const baseDate = ship.dates?.portArrivalDate && ship.dates.portArrivalDate !== '-' ? ship.dates.portArrivalDate : ship.dates?.estimatedArrival;
+                    if (baseDate && baseDate !== '-') {
+                        const availDateStr = calculateAvailability(baseDate);
+                        const availDate = getDateObject(availDateStr);
+                        if (availDate) {
+                            const year = availDate.getFullYear();
+                            const month = String(availDate.getMonth() + 1).padStart(2, '0');
+                            const key = `${year}-${month}`;
+                            arrivalData[key] = arrivalData[key] || {};
+                            arrivalData[key][po.item] = (arrivalData[key][po.item] || 0) + po.quantity;
+                        }
+                    }
+                });
+            });
+
+            const allItems = new Set([...Object.keys(MOCK_INVENTORY), ...MOCK_SHIPMENTS_DATA.flatMap(s => s.purchaseOrders.map(p => p.item)), ...Object.keys(MOCK_SALES_FORECAST).flatMap(m => Object.keys(MOCK_SALES_FORECAST[m]))]);
+            const months = Object.keys(MOCK_SALES_FORECAST).sort();
+            let prevBalance = { ...MOCK_INVENTORY };
+            
+            for (const item of allItems) simulation[item] = { currentStock: MOCK_INVENTORY[item] || 0, periods: {} };
+            
+            months.forEach(m => {
+                for (const item of allItems) {
+                    const start = prevBalance[item] || 0;
+                    const arrival = (arrivalData[m] || {})[item] || 0;
+                    const sale = (MOCK_SALES_FORECAST[m] || {})[item] || 0;
+                    const end = start + arrival - sale;
+                    simulation[item].periods[m] = { startStock: start, arrivals: arrival, sales: sale, endBalance: end };
+                    prevBalance[item] = end;
+                }
+            });
+            return { simulation, projectionMonths: months };
+        }
+
+        function calculatePurchaseSuggestions() {
+            const { simulation, projectionMonths } = calculateStockSimulation();
+            const suggestions = [];
+            for (const [item, data] of Object.entries(simulation)) {
+                const params = MOCK_REPLENISHMENT_PARAMS[item];
+                if (!params) continue;
+                for (const m of projectionMonths) {
+                    if (data.periods[m].endBalance < params.SS_units) {
+                        const deadline = getDateObject(m + '-01');
+                        if (deadline) {
+                            deadline.setDate(deadline.getDate() - params.LT_days);
+                            suggestions.push({ 
+                                item, 
+                                ss: params.SS_units, 
+                                lt: params.LT_days, 
+                                quantity: Math.max(1, params.SS_units - data.periods[m].endBalance + (MOCK_SALES_FORECAST[m]?.[item] || 0)), 
+                                month: m, 
+                                deadline, 
+                                urgent: deadline < SIMULATED_TODAY 
+                            });
+                        }
+                        break;
+                    }
+                }
+            }
+            return suggestions;
+        }
+
+        // --- COMPONENTES DE UI ---
+
+        function generateTimeline(currentStageId, shipmentId) {
+            return `
+                <div class="flex justify-between items-start text-xs font-semibold mt-4 mb-2 overflow-x-auto p-2">
+                    ${STAGES.map(stage => {
+                        const isCompleted = stage.id < currentStageId;
+                        const isActive = stage.id === currentStageId;
+                        const statusClass = isCompleted ? 'bg-green-500' : isActive ? 'bg-blue-500 animate-pulse' : 'bg-gray-600';
+                        const textClass = isActive ? 'text-blue-400 font-bold' : 'text-gray-400';
+                        return `<div class="flex flex-col items-center flex-shrink-0 min-w-[75px] max-w-[90px]">
+                                <div class="w-5 h-5 ${statusClass} rounded-full flex items-center justify-center text-white shadow-md z-10 cursor-pointer" 
+                                     onclick="window.updateShipmentStage('${shipmentId}', ${stage.id})">${isCompleted ? '✓' : stage.id}</div>
+                                <div class="h-1 w-full -mt-2.5 ${stage.id <= currentStageId - 1 ? 'bg-blue-600' : 'bg-gray-700'}"></div>
+                                <span class="mt-1 text-center ${textClass} text-[9px] sm:text-[10px] leading-tight">${stage.name}</span>
+                            </div>`;
+                    }).join('')}
+                </div>`;
+        }
+
+        function createShipmentCard(shipment) {
+            const currentStage = STAGES.find(s => s.id === shipment.currentStage);
+            const displayRealDate = (realDate, estimatedDate) => {
+                if (realDate && realDate !== 'null' && realDate !== '-') return formatDate(realDate);
+                if (estimatedDate && estimatedDate !== 'null' && estimatedDate !== '-') return `<span class="text-yellow-400 font-bold">${formatDate(estimatedDate)} E</span>`;
+                return '-';
+            };
+            const availDateStr = calculateAvailability(shipment.dates.portArrivalDate && shipment.dates.portArrivalDate !== '-' ? shipment.dates.portArrivalDate : shipment.dates.estimatedArrival);
+
+            return `
+                <div class="bg-gray-800 rounded-xl shadow-xl border border-gray-700 p-6">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b border-gray-700 pb-4">
+                        <h2 class="text-2xl font-bold text-gray-100">${shipment.name} (${shipment.commercialInvoiceId})</h2>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-3 py-1 bg-purple-900/40 text-purple-300 font-semibold text-sm rounded-full">${shipment.supplier}</span>
+                            <div class="text-3xl ${shipment.currentStage === 6 ? 'ship-in-transit' : ''}">${currentStage.icon}</div>
+                            <span class="px-4 py-1.5 bg-blue-700 font-semibold text-sm rounded-full">${currentStage.name}</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div class="text-sm">
+                            <p class="mb-1 text-blue-400 font-bold uppercase text-xs tracking-wider">Referências</p>
+                            <p><strong>CI:</strong> ${shipment.commercialInvoiceId}</p>
+                            <p><strong>Container:</strong> <span class="text-yellow-400 font-mono">${shipment.containerNumber || 'TBA'}</span></p>
+                        </div>
+                        <div class="text-sm">
+                            <p class="mb-1 text-blue-400 font-bold uppercase text-xs tracking-wider">Datas Logísticas (Real)</p>
+                            <p><strong>Embarque:</strong> ${displayRealDate(shipment.dates.shipDepartureDate, shipment.dates.estimatedDeparture)}</p>
+                            <p><strong>Chegada:</strong> ${displayRealDate(shipment.dates.portArrivalDate, shipment.dates.estimatedArrival)}</p>
+                            <p class="text-green-400 mt-2 font-bold underline"><strong>Disponibilidade (D+16):</strong> ${formatDate(availDateStr)}</p>
+                        </div>
+                        <div class="text-sm">
+                            <p class="mb-1 text-yellow-400 font-bold uppercase text-xs tracking-wider">Estimativas (ETD / ETA)</p>
+                            <p><strong>ETD:</strong> <span class="font-bold text-yellow-400">${formatDate(shipment.dates.estimatedDeparture)}</span></p>
+                            <p><strong>ETA:</strong> <span class="font-bold text-yellow-400">${formatDate(shipment.dates.estimatedArrival)}</span></p>
+                        </div>
+                    </div>
+                    ${generateTimeline(shipment.currentStage, shipment.shipmentId)}
+                </div>`;
+        }
+
+        // --- RENDERIZAÇÃO PRINCIPAL ---
+
+        function renderOrders() {
+            const loader = document.getElementById('loading-message');
+            if (loader) loader.style.display = 'none';
+
+            // 1. POs Abertas
+            const poSec = document.getElementById('open-po-summary');
+            if (MOCK_OPEN_POS.length > 0) {
+                const total = MOCK_OPEN_POS.length;
+                const sent = MOCK_OPEN_POS.filter(p => p.currentStage === 1).length;
+                const prod = MOCK_OPEN_POS.filter(p => p.currentStage === 2).length;
+
+                poSec.innerHTML = `
+                <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-2xl">
+                    <h3 class="text-2xl font-bold text-white mb-6 border-b border-gray-700 pb-2">POs Abertas / PIs Emitidas</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center mb-8">
+                        <div class="p-4 rounded-lg bg-blue-900/40 border border-blue-700/50">
+                            <p class="text-4xl font-extrabold text-blue-400">${total}</p>
+                            <p class="text-sm text-gray-300 mt-1 uppercase tracking-widest text-xs font-bold">Total de Pedidos</p>
+                        </div>
+                        <div class="p-4 rounded-lg bg-green-900/40 border border-green-700/50">
+                            <p class="text-4xl font-extrabold text-green-400">${sent}</p>
+                            <p class="text-sm text-gray-300 mt-1 uppercase tracking-widest text-xs font-bold">PO - Enviada</p>
+                        </div>
+                        <div class="p-4 rounded-lg bg-yellow-900/40 border border-yellow-700/50">
+                            <p class="text-4xl font-extrabold text-yellow-400">${prod}</p>
+                            <p class="text-sm text-gray-300 mt-1 uppercase tracking-widest text-xs font-bold">Em Produção</p>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto rounded-lg border border-gray-700">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-700 text-gray-200 uppercase text-[10px]">
+                                <tr><th class="px-4 py-3">ID PO / PI</th><th class="px-4 py-3">Fornecedor</th><th class="px-4 py-3">Item</th><th class="px-4 py-3 text-center">Status</th></tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-700">
+                                ${MOCK_OPEN_POS.map(p => {
+                                    const st = getOpenPOStatus(p.readyDate);
+                                    return `<tr class="hover:bg-gray-700"><td class="px-4 py-3 text-blue-400 font-bold">${p.id}</td><td class="px-4 py-3">${p.supplier}</td><td class="px-4 py-3 text-gray-300">${p.item} (${p.quantity} ${p.units || 'un'})</td><td class="px-4 py-3 text-center"><span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase ${st.color}">${st.status}</span></td></tr>`
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+            } else { poSec.innerHTML = ''; }
+
+            // 2. Remessas
+            const shipWrapper = document.getElementById('shipment-wrapper');
+            const shipContainer = document.getElementById('shipment-container');
+            if (MOCK_SHIPMENTS_DATA.length > 0) {
+                shipWrapper.classList.remove('hidden');
+                shipContainer.innerHTML = MOCK_SHIPMENTS_DATA.map(createShipmentCard).join('');
+            } else {
+                shipWrapper.classList.add('hidden');
+            }
+
+            // 3. S&OP
+            const { simulation, projectionMonths } = calculateStockSimulation();
+            const invSec = document.getElementById('inventory-control');
+            const headerMonths = projectionMonths.map(m => `<th colspan="3" class="px-3 py-3 text-center text-xs font-medium text-gray-300 uppercase border-l border-gray-700 bg-gray-700/50">${m}</th>`).join('');
+            const subHeaders = projectionMonths.map(() => `<th class="px-3 py-2 text-right text-[10px] text-gray-400 border-l border-gray-700">Cheg</th><th class="px-3 py-2 text-right text-[10px] text-gray-400">Vend</th><th class="px-3 py-2 text-right text-[10px] text-gray-400 font-bold">Saldo</th>`).join('');
+
+            invSec.innerHTML = `<div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-xl mt-8">
+                <h3 class="text-2xl font-bold text-white mb-4 border-b border-gray-700 pb-2">Projeção de Estoque Futuro (S&OP)</h3>
+                <div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-700">
+                    <thead class="bg-gray-700 text-gray-200">
+                        <tr><th rowspan="2" class="px-6 py-3 text-left text-xs uppercase sticky left-0 bg-gray-700">Item</th><th rowspan="2" class="px-6 py-3 text-right text-xs uppercase border-l border-gray-600">Estoque</th>${headerMonths}</tr>
+                        <tr class="bg-gray-700/70">${subHeaders}</tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-700">
+                        ${Object.entries(simulation).map(([item, d]) => {
+                            const ss = MOCK_REPLENISHMENT_PARAMS[item]?.SS_units || 0;
+                            return `<tr><td class="px-6 py-3 text-sm font-semibold sticky left-0 bg-gray-800">${item}</td><td class="px-6 py-3 text-sm text-right font-bold text-blue-400">${d.currentStock}</td>
+                                ${projectionMonths.map(m => {
+                                    const p = d.periods[m];
+                                    const balClass = p.endBalance < 0 ? 'text-red-400 font-bold' : (p.endBalance < ss ? 'text-yellow-400 font-bold' : 'text-green-400');
+                                    return `<td class="px-3 py-2 text-right text-xs text-gray-400 border-l border-gray-700 opacity-60">${p.arrivals}</td><td class="px-3 py-2 text-right text-xs text-gray-400 opacity-60">${p.sales}</td><td class="px-3 py-2 text-right text-xs font-bold ${balClass}">${p.endBalance}</td>`;
+                                }).join('')}</tr>`}).join('')}
+                    </tbody>
+                </table></div></div>`;
+
+            // 4. Sugestões
+            const sug = calculatePurchaseSuggestions();
+            const sugSec = document.getElementById('purchase-suggestions');
+            sugSec.innerHTML = sug.length ? `<div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-xl mt-8">
+                <h3 class="text-2xl font-bold text-red-500 mb-4 border-b border-red-900/40 pb-2 flex items-center">🚨 Sugestões de Reposição Urgente</h3>
+                <div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-700">
+                    <thead class="bg-red-900/20 text-gray-200">
+                        <tr class="text-xs uppercase">
+                            <th class="px-4 py-3 text-left">Item</th><th class="px-4 py-3 text-right">Estoque Seg.</th><th class="px-4 py-3 text-right">Lead Time</th>
+                            <th class="px-4 py-3 text-right">Sugestão</th><th class="px-4 py-3 text-center">Mês Déficit</th><th class="px-4 py-3 text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-700">
+                        ${sug.map(s => `<tr>
+                            <td class="px-4 py-3 font-semibold text-sm">${s.item}</td>
+                            <td class="px-4 py-3 text-right text-sm text-gray-400">${s.ss}</td>
+                            <td class="px-4 py-3 text-right text-sm text-red-400 font-bold">${s.lt} d</td>
+                            <td class="px-4 py-3 text-right text-blue-400 font-bold text-sm">${Math.ceil(s.quantity)}</td>
+                            <td class="px-4 py-3 text-center text-sm text-gray-400">${s.month}</td>
+                            <td class="px-4 py-3 text-center text-sm ${s.urgent ? 'text-red-400 font-bold' : 'text-yellow-400'}">
+                                ${s.urgent ? 'URGENTE (Atrasado)' : 'Ação Necessária'}<br/>
+                                <small class="opacity-70">${s.deadline.toLocaleDateString('pt-BR')}</small>
+                            </td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table></div></div>` : '';
+        }
+
+        function rebuildLocalData(masterData) {
+            MOCK_OPEN_POS = [];
+            let shipmentMap = {};
+            masterData.forEach(row => {
+                if (row.shipmentId) {
+                    shipmentMap[row.shipmentId] = shipmentMap[row.shipmentId] || {
+                        shipmentId: row.shipmentId, commercialInvoiceId: row.commercialInvoiceId || 'N/A',
+                        containerNumber: row.containerNumber, supplier: row.supplier || 'N/A',
+                        name: `Remessa ${row.shipmentId}`, type: row.type || 'N/A',
+                        currentStage: parseInt(row.shipmentCurrentStage) || 3,
+                        dates: row.dates || {}, purchaseOrders: []
+                    };
+                    shipmentMap[row.shipmentId].purchaseOrders.push({
+                        id: row.poId, item: row.item, quantity: parseInt(row.quantity) || 0,
+                        plannedAvailability: row.dates?.estimatedDelivery
+                    });
+                } else {
+                    MOCK_OPEN_POS.push({
+                        id: row.poId, supplier: row.supplier, item: row.item,
+                        quantity: parseInt(row.quantity) || 0, readyDate: row.poReadyDate,
+                        units: row.units || 'un', currentStage: parseInt(row.poCurrentStage) || 1
+                    });
+                }
+            });
+            MOCK_SHIPMENTS_DATA = Object.values(shipmentMap);
+            renderOrders();
+        }
+
+        // --- FIREBASE CORE ---
+        async function setupFirebase() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                document.getElementById('auth-status').textContent = 'Conectando...';
+                await new Promise(resolve => {
+                    if (initialAuthToken) signInWithCustomToken(auth, initialAuthToken).catch(() => signInAnonymously(auth));
+                    else signInAnonymously(auth);
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            userId = user.uid; isAuthReady = true;
+                            document.getElementById('auth-status').textContent = 'Conectado';
+                            document.getElementById('user-id-display').textContent = userId;
+                            startDataListener(); resolve();
+                        }
+                    });
+                });
+            } catch (err) { console.error("Firebase Error:", err); }
+        }
+
+        function startDataListener() {
+            const masterRef = collection(db, `artifacts/${appId}/users/${userId}/master_po_data`);
+            const invRef = collection(db, `artifacts/${appId}/users/${userId}/inventory_params`);
+            const metaRef = doc(db, `artifacts/${appId}/users/${userId}/app_metadata/last_update`);
+
+            onSnapshot(metaRef, (snap) => {
+                const last = snap.exists() ? snap.data().timestamp : null;
+                const el = document.getElementById('last-update-time');
+                if (last?.toDate) el.textContent = last.toDate().toLocaleString('pt-BR');
+            });
+
+            onSnapshot(masterRef, (snap) => {
+                const data = snap.docs.map(d => d.data());
+                rebuildLocalData(data);
+            });
+
+            onSnapshot(invRef, (snap) => {
+                const data = snap.docs.map(d => d.data());
+                MOCK_INVENTORY = {}; MOCK_REPLENISHMENT_PARAMS = {}; MOCK_SALES_FORECAST = {};
+                data.forEach(row => {
+                    const item = row.item;
+                    MOCK_INVENTORY[item] = row.currentStock || 0;
+                    MOCK_REPLENISHMENT_PARAMS[item] = { SS_units: row.ssUnits || 0, LT_days: row.ltDays || 0 };
+                    Object.keys(row).forEach(k => {
+                        if (k.startsWith('sales_')) {
+                            const m = k.substring(6);
+                            MOCK_SALES_FORECAST[m] = MOCK_SALES_FORECAST[m] || {};
+                            MOCK_SALES_FORECAST[m][item] = row[k];
+                        }
+                    });
+                });
+                renderOrders();
+            });
+        }
+
+        // --- EXPOSIÇÃO GLOBAL PARA O HTML ---
+        window.toggleDropdown = () => document.getElementById('dropdownMenu').classList.toggle('hidden');
+        window.handleImportClick = (type) => document.getElementById(type === 'master' ? 'fileInputMaster' : 'fileInputSOP').click();
+        
+        window.handleDownloadTemplateCSV = () => {
+            const h = "action;poId;piNo;supplier;item;quantity;units;poReadyDate;poCurrentStage;shipmentId;commercialInvoiceId;type;shipmentCurrentStage;estimatedDeparture;estimatedArrival;estimatedDelivery;containerNumber";
+            const b = new Blob([h], { type: 'text/csv' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = "modelo_logistica.csv"; a.click();
+        };
+
+        window.handleDownloadSOPTemplate = () => {
+            const h = "item;currentStock;ssUnits;ltDays;sales_2026-01;sales_2026-02";
+            const b = new Blob([h], { type: 'text/csv' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = "modelo_sop.csv"; a.click();
+        };
+
+        window.handleImportCSV = (e) => {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                const lines = ev.target.result.split('\n').filter(l => l.trim());
+                if (lines.length < 2) return;
+                const headers = lines[0].split(';').map(h => h.trim().replace(/"/g, ''));
+                const batch = writeBatch(db);
+                lines.slice(1).forEach(line => {
+                    const vals = line.split(';'); const obj = {}; headers.forEach((h, i) => obj[h] = vals[i]);
+                    if (obj.poId) {
+                        const ref = doc(db, `artifacts/${appId}/users/${userId}/master_po_data`, obj.poId);
+                        batch.set(ref, {
+                            poId: obj.poId, piNo: obj.piNo || null, supplier: obj.supplier || null, item: obj.item || null,
+                            quantity: Number(obj.quantity) || 0, units: obj.units || 'un',
+                            poReadyDate: parseDateString(obj.poReadyDate), poCurrentStage: Number(obj.poCurrentStage) || 1,
+                            shipmentId: obj.shipmentId || null, commercialInvoiceId: obj.commercialInvoiceId || null,
+                            shipmentCurrentStage: obj.shipmentCurrentStage ? Number(obj.shipmentCurrentStage) : null,
+                            containerNumber: obj.containerNumber || null,
+                            dates: { estimatedDeparture: parseDateString(obj.estimatedDeparture), estimatedArrival: parseDateString(obj.estimatedArrival), estimatedDelivery: parseDateString(obj.estimatedDelivery) }
+                        }, { merge: true });
+                    }
+                });
+                batch.set(doc(db, `artifacts/${appId}/users/${userId}/app_metadata`, 'last_update'), { timestamp: serverTimestamp() }, { merge: true });
+                await batch.commit();
+                showToast('Logística importada com sucesso!', 'bg-blue-600');
+            };
+            reader.readAsText(file);
+        };
+
+        window.handleImportSOPCSV = (e) => {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                const lines = ev.target.result.split('\n').filter(l => l.trim());
+                if (lines.length < 2) return;
+                const headers = lines[0].split(';').map(h => h.trim().replace(/"/g, ''));
+                const batch = writeBatch(db);
+                lines.slice(1).forEach(line => {
+                    const vals = line.split(';'); const obj = {}; headers.forEach((h, i) => obj[h] = vals[i]);
+                    if (obj.item) {
+                        const ref = doc(db, `artifacts/${appId}/users/${userId}/inventory_params`, obj.item);
+                        const fireData = { item: obj.item, currentStock: Number(obj.currentStock) || 0, ssUnits: Number(obj.ssUnits) || 0, ltDays: Number(obj.ltDays) || 0 };
+                        Object.keys(obj).forEach(k => { if (k.startsWith('sales_')) fireData[k] = Number(obj[k]) || 0; });
+                        batch.set(ref, fireData, { merge: true });
+                    }
+                });
+                batch.set(doc(db, `artifacts/${appId}/users/${userId}/app_metadata`, 'last_update'), { timestamp: serverTimestamp() }, { merge: true });
+                await batch.commit();
+                showToast('S&OP Importado com sucesso!', 'bg-purple-600');
+            };
+            reader.readAsText(file);
+        };
+
+        window.updateShipmentStage = async (id, stage) => {
+            const ship = MOCK_SHIPMENTS_DATA.find(s => s.shipmentId === id); if (!ship) return;
+            const batch = writeBatch(db); const today = new Date().toISOString().slice(0, 10);
+            ship.purchaseOrders.forEach(p => {
+                const ref = doc(db, `artifacts/${appId}/users/${userId}/master_po_data`, p.id);
+                const upd = { shipmentCurrentStage: stage };
+                if (stage === 6) upd['dates.shipDepartureDate'] = today;
+                if (stage === 7) upd['dates.portArrivalDate'] = today;
+                batch.update(ref, upd);
+            });
+            batch.set(doc(db, `artifacts/${appId}/users/${userId}/app_metadata`, 'last_update'), { timestamp: serverTimestamp() }, { merge: true });
+            await batch.commit();
+            showToast('Estágio atualizado!', 'bg-green-600');
+        };
+
+        window.handleExportCSV = () => showToast('Funcionalidade em desenvolvimento', 'bg-gray-600');
+
+        function showToast(msg, color) {
+            let t = document.getElementById('toast');
+            if (!t) { t = document.createElement('div'); t.id='toast'; t.className='fixed bottom-4 right-4 p-4 rounded-lg text-white z-50 transition-all duration-300 shadow-2xl'; document.body.appendChild(t); }
+            t.className = `fixed bottom-4 right-4 p-4 rounded-lg text-white z-50 transition-all duration-300 shadow-2xl opacity-100 ${color}`;
+            t.innerText = msg;
+            setTimeout(() => { t.classList.replace('opacity-100', 'opacity-0'); }, 3000);
+        }
+
+        // --- INICIALIZAÇÃO ---
+        setupFirebase();
+    </script>
+</body>
+</html>
